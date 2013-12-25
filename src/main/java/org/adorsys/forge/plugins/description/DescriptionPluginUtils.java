@@ -1,10 +1,19 @@
 package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+import org.adorsys.javaext.description.Description;
+import org.jboss.forge.parser.java.Field;
 import org.jboss.forge.parser.java.JavaClass;
 import org.jboss.forge.parser.java.JavaInterface;
 import org.jboss.forge.parser.java.JavaSource;
+import org.jboss.forge.project.Project;
+import org.jboss.forge.project.facets.ResourceFacet;
+import org.jboss.forge.resources.PropertiesFileResource;
 import org.jboss.forge.resources.Resource;
 import org.jboss.forge.resources.java.JavaResource;
 
@@ -42,4 +51,14 @@ public final class DescriptionPluginUtils {
 					+ "' is not a class or an interface");
 		}
 	}
+
+	public static PropertiesFileResource loadDescriptionPropertiesFileResource(Project project) throws IOException{
+		ResourceFacet resourceFacet = project.getFacet(ResourceFacet.class);
+		PropertiesFileResource descriptionProperties = (PropertiesFileResource) resourceFacet.getResource("description.properties");
+		if(!descriptionProperties.exists()) descriptionProperties.createNewFile();
+		return descriptionProperties ;
+
+
+	}
+
 }

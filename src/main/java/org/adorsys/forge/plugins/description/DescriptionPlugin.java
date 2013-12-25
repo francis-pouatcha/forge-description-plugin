@@ -1,6 +1,10 @@
 package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 import javax.enterprise.event.Event;
 import javax.inject.Inject;
@@ -16,10 +20,12 @@ import org.jboss.forge.parser.java.Method;
 import org.jboss.forge.project.Project;
 import org.jboss.forge.project.facets.JavaSourceFacet;
 import org.jboss.forge.project.facets.events.InstallFacets;
+import org.jboss.forge.resources.PropertiesFileResource;
 import org.jboss.forge.resources.Resource;
 import org.jboss.forge.resources.java.JavaFieldResource;
 import org.jboss.forge.resources.java.JavaMethodResource;
 import org.jboss.forge.resources.java.JavaResource;
+import org.jboss.forge.shell.PromptType;
 import org.jboss.forge.shell.Shell;
 import org.jboss.forge.shell.ShellMessages;
 import org.jboss.forge.shell.completer.PropertyCompleter;
@@ -42,7 +48,7 @@ import org.jboss.forge.shell.plugins.SetupCommand;
  */
 @Alias("description")
 @RequiresProject
-@Help("This plugin will help you setting up Envers .")
+@Help("This plugin will hel you add description on entity or field  .")
 @RequiresFacet({ DescriptionFacet.class })
 public class DescriptionPlugin implements Plugin {
 
@@ -51,7 +57,7 @@ public class DescriptionPlugin implements Plugin {
 
 	@Inject
 	private Event<InstallFacets> request;
-	
+
 	@Inject
 	private Event<PickupResource> pickup;
 
@@ -70,7 +76,7 @@ public class DescriptionPlugin implements Plugin {
 					"Description service could not be installed.");
 		}
 	}
-	
+
 	@Command(value = "add-description", help = "Adds a description annotation to the current resource (class, interface, field, method")
 	public void addDescription(@Option String description, final PipeOut out){
 		final Resource<?> currentResource = shell.getCurrentResource();
@@ -80,7 +86,7 @@ public class DescriptionPlugin implements Plugin {
 			Annotation<? extends JavaSource<?>> annotation = field.addAnnotation(Description.class);
 			annotation.setStringValue(description);
 			JavaSource<?> origin = field.getOrigin();
-//			JavaResource parent = (JavaResource) jfr.getParent();
+			//			JavaResource parent = (JavaResource) jfr.getParent();
 			saveAndFire(origin);
 		}else if (currentResource instanceof JavaMethodResource){
 			JavaMethodResource jmr =  (JavaMethodResource) currentResource;
@@ -88,7 +94,7 @@ public class DescriptionPlugin implements Plugin {
 			Annotation<? extends JavaSource<?>> annotation = method.addAnnotation(Description.class);
 			annotation.setStringValue(description);
 			JavaSource<?> origin = method.getOrigin();
-//			JavaResource parent = (JavaResource) jmr.getParent();
+			//			JavaResource parent = (JavaResource) jmr.getParent();
 			saveAndFire(origin);
 		} else if(currentResource instanceof JavaResource){
 			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
@@ -126,14 +132,14 @@ public class DescriptionPlugin implements Plugin {
 			}
 		}
 	}
-	
+
 
 	@Command(value = "add-field-description", help = "Adds a description annotation to a class field")
 	public void addFieldDescription(
 			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
 			@Option String description, final PipeOut out) {
 		final Resource<?> currentResource = shell.getCurrentResource();
-		
+
 		if(currentResource instanceof JavaFieldResource){
 			JavaFieldResource jfr =  (JavaFieldResource) currentResource;
 			Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
@@ -144,19 +150,19 @@ public class DescriptionPlugin implements Plugin {
 		}else {
 			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
 					.inspectResource(currentResource);
-	
+
 			if (!javaClassOrInterface.isClass()) {
 				throw new IllegalStateException(
 						"The current resource is not a class.");
 			}
-	
+
 			JavaClass clazz = javaClassOrInterface.getJavaClass();
 			final Field<JavaClass> field = clazz.getField(property);
 			if (field == null)
 				throw new IllegalStateException(
 						"The current class has no property named '" + property
-								+ "'");
-	
+						+ "'");
+
 			Member<JavaClass, ?> member = field;
 			if (member.hasAnnotation(Description.class)) {
 				throw new IllegalStateException("The element '" + member.getName()
@@ -215,7 +221,48 @@ public class DescriptionPlugin implements Plugin {
 			saveAndFire(javaInterface);
 		}
 	}
-	
+
+	@Command(value="auto-generate-description",help="add description  in description.propeties file from java class")
+	public void auditFieldCommand(final PipeOut out , @Option(required=false,type=PromptType.JAVA_CLASS) JavaResource targets ) throws IOException
+	{
+		final Resource<?> currentResource = shell.getCurrentResource();
+		if ((targets == null)&& (currentResource instanceof JavaResource)) {
+			targets = (JavaResource) currentResource ;
+		}
+		if (targets==null) {
+			ShellMessages.error(out, "Must specify a java resource on which to operate.");
+			return;
+		}
+		PropertiesFileResource propertiesFileResource = DescriptionPluginUtils.loadDescriptionPropertiesFileResource(project);
+		ResourceDescription resourceDescription = getResourceDescription(targets);
+		propertiesFileResource.putAllProperties(resourceDescription);
+		propertiesFileResource.setContents(propertiesFileResource.getResourceInputStream());
+
+
+	}
+
+	public  ResourceDescription getDescriptionFromField(Field<?> field){
+		ResourceDescription fieldDescription = new ResourceDescription();
+		String descriptionKey = new StringBuilder(field.getOrigin().getCanonicalName()).append("."+field.getName()).append(".description").toString();
+		String description ="";
+		if(field.hasAnnotation(org.adorsys.javaext.description.Description.class)){
+			description = field.getAnnotation(Description.class).getStringValue();
+		}
+		fieldDescription.put(descriptionKey, description);
+		return fieldDescription ;
+	}
+
+	public ResourceDescription getResourceDescription(JavaResource resource){
+		ResourceDescription resourceDescription = new ResourceDescription();
+		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils.inspectResource(resource);
+		resourceDescription.put(javaClassOrInterface.getDescriptionKey(), javaClassOrInterface.getDescription());
+		List<Field<?>> fields = javaClassOrInterface.getField();
+		for (Field<?> field : fields) {
+			resourceDescription.putAll(getDescriptionFromField(field));
+		}
+		return resourceDescription ;
+	}
+
 	private void saveAndFire(JavaSource<?> source){
 		final JavaSourceFacet javaSourceFacet = project.getFacet(JavaSourceFacet.class);
 		try {
@@ -226,9 +273,9 @@ public class DescriptionPlugin implements Plugin {
 					"The current resource '"
 							+ source.getName() + "' was deleted from the file system.");
 		}
-		
+
 	}
-	
+
 	private void saveAndFire(JavaResource resource) {
 		try {
 			saveAndFire(resource.getJavaSource());
