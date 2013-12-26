@@ -1,6 +1,7 @@
 package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
+import java.util.List;
 
 import javax.enterprise.event.Event;
 import javax.inject.Inject;
@@ -15,8 +16,12 @@ import org.jboss.forge.parser.java.Member;
 import org.jboss.forge.parser.java.Method;
 import org.jboss.forge.project.Project;
 import org.jboss.forge.project.facets.JavaSourceFacet;
+import org.jboss.forge.project.facets.ResourceFacet;
 import org.jboss.forge.project.facets.events.InstallFacets;
+import org.jboss.forge.resources.DirectoryResource;
+import org.jboss.forge.resources.PropertiesFileResource;
 import org.jboss.forge.resources.Resource;
+import org.jboss.forge.resources.ResourceFilter;
 import org.jboss.forge.resources.java.JavaFieldResource;
 import org.jboss.forge.resources.java.JavaMethodResource;
 import org.jboss.forge.resources.java.JavaResource;
@@ -215,7 +220,126 @@ public class DescriptionPlugin implements Plugin {
 			saveAndFire(javaInterface);
 		}
 	}
+
+	private static final String GET_PREFIX = "get";
+	private static final String IS_PREFIX = "is";	
+	public static final String DESCRIPTION_CONSTANT = "description";
+	@Command(value = "add-keyed-description", help = "Add description keys and annotation to class, fields and/or method as specified by hte caller.")
+	public void addKeyedDescription(
+			@Option(name = "onAllProperties", flagOnly = true, required=false) boolean onProperties,
+			@Option(name = "onAllAccessors", flagOnly = true, required=false) boolean onAccessors,
+			final PipeOut out){
+		final Resource<?> currentResource = shell.getCurrentResource();
+		
+		if(currentResource instanceof JavaFieldResource){
+			JavaFieldResource jfr =  (JavaFieldResource) currentResource;
+			Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
+			Annotation<? extends JavaSource<?>> annotation = field.addAnnotation(Description.class);
+			JavaSource<?> origin = field.getOrigin();
+			String klassQualifiedName = origin.getQualifiedName();
+			String fieldName = field.getName();
+			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
+			annotation.setStringValue(descriptionKey);
+			updateResourceBundleFiles(origin.getPackage(), descriptionKey);
+			saveAndFire(origin);
+		
+		}else if (currentResource instanceof JavaMethodResource){
+			JavaMethodResource jmr =  (JavaMethodResource) currentResource;
+			Method<? extends JavaSource<?>> method = jmr.getUnderlyingResourceObject();
+			Annotation<? extends JavaSource<?>> annotation = method.addAnnotation(Description.class);
+			JavaSource<?> origin = method.getOrigin();
+			String klassQualifiedName = origin.getQualifiedName();
+			String fieldName = method.getName();
+			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
+			annotation.setStringValue(descriptionKey);
+			updateResourceBundleFiles(origin.getPackage(), descriptionKey);
+			saveAndFire(origin);
+		} else if(currentResource instanceof JavaResource){
+			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
+					.inspectResource(currentResource);
+
+			if (javaClassOrInterface.isClass()) {
+				JavaClass clazz = javaClassOrInterface.getJavaClass();
+				
+				if (!clazz.hasAnnotation(Description.class)) {
+					Annotation<JavaClass> annotation = clazz
+							.addAnnotation(Description.class);
+					String descriptionKey = clazz.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
+					annotation.setStringValue(descriptionKey);
+					updateResourceBundleFiles(clazz.getPackage(), descriptionKey);
+				}
+				if(onAccessors)
+					addDescriptionOnAccessors(clazz);
+				if(onProperties)
+					addPropertiesOnProperties(clazz);
+				
+				saveAndFire(clazz);
+
+			} else if (javaClassOrInterface.isInterface()) {
+				JavaInterface javaInterface = javaClassOrInterface.getJavaInterface();
+				
+				if (!javaInterface.hasAnnotation(Description.class)) {
+					Annotation<JavaInterface> annotation = javaInterface
+							.addAnnotation(Description.class);
+					String descriptionKey = javaInterface.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
+					annotation.setStringValue(descriptionKey);
+					updateResourceBundleFiles(javaInterface.getPackage(), descriptionKey);
+				}
+				if(onAccessors)
+					addDescriptionOnAccessors(javaInterface);
+
+				saveAndFire(javaInterface);
+			}
+		}
+	}	
 	
+	private void addDescriptionOnAccessors(JavaInterface javaInterface) {
+		List<Method<JavaInterface>> methods = javaInterface.getMethods();
+		for (Method<JavaInterface> method : methods) {
+			String methodName = method.getName();
+			if (methodName == null)
+				continue;
+			if (methodName.startsWith(IS_PREFIX)
+					|| methodName.startsWith(GET_PREFIX)){
+				if(method.hasAnnotation(Description.class))continue;
+				Annotation<JavaInterface> annotation = method.addAnnotation(Description.class);
+				String descriptionKey = javaInterface.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
+				annotation.setStringValue(descriptionKey);
+				updateResourceBundleFiles(javaInterface.getPackage(), descriptionKey);
+			}
+		}
+	}
+
+	private void addPropertiesOnProperties(JavaClass javaClass) {
+		List<Field<JavaClass>> fields = javaClass.getFields();
+		for (Field<JavaClass> field : fields) {
+			if(field.isStatic()) continue;
+			if(field.hasAnnotation(Description.class)) continue;
+			Annotation<JavaClass> annotation = field.addAnnotation(Description.class);
+			String descriptionKey = javaClass.getQualifiedName() + "." + field.getName() + "." + DESCRIPTION_CONSTANT;
+			annotation.setStringValue(descriptionKey);
+			updateResourceBundleFiles(javaClass.getPackage(), descriptionKey);
+		}
+		
+	}
+
+	private void addDescriptionOnAccessors(JavaClass javaClass) {
+		List<Method<JavaClass>> methods = javaClass.getMethods();
+		for (Method<JavaClass> method : methods) {
+			String methodName = method.getName();
+			if (methodName == null)
+				continue;
+			if (methodName.startsWith(IS_PREFIX)
+					|| methodName.startsWith(GET_PREFIX)){
+				if(method.hasAnnotation(Description.class))continue;
+				Annotation<JavaClass> annotation = method.addAnnotation(Description.class);
+				String descriptionKey = javaClass.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
+				annotation.setStringValue(descriptionKey);
+				updateResourceBundleFiles(javaClass.getPackage(), descriptionKey);
+			}
+		}
+	}
+
 	private void saveAndFire(JavaSource<?> source){
 		final JavaSourceFacet javaSourceFacet = project.getFacet(JavaSourceFacet.class);
 		try {
@@ -238,5 +362,63 @@ public class DescriptionPlugin implements Plugin {
 							+ resource.getName() + "' was deleted from the file system.");
 		}
 	}
+	
+	
+	/*
+	 * Will update the resource bundle file. We will us a single file for each package.
+	 */
+	private void updateResourceBundleFiles(String packageName, String key){
+		String bundleName = packageName + ".descriptions.messages.properties";
+		PropertiesFileResource propertiesFileResource = getOrCreate(bundleName);
+		propertiesFileResource.putProperty(key, key);
+		
+	}
 
+   private class BundleBaseNameResourceFilter implements ResourceFilter
+   {
+      private String fileName;
+
+      public BundleBaseNameResourceFilter(String fileName)
+      {
+         this.fileName = fileName;
+      }
+
+      @Override
+      public boolean accept(Resource<?> resource)
+      {
+         return (resource instanceof PropertiesFileResource && resource.getName().startsWith(fileName));
+      }
+   }
+   
+   /**
+    * Gets another file resource. Creates a file in case it does not exist
+    * 
+    * @param bundleName
+    * @return
+    */
+   protected PropertiesFileResource getOrCreate(final String bundleName)
+   {
+      final ResourceFacet resourceFacet = project.getFacet(ResourceFacet.class);
+      final BundleBaseNameResourceFilter filter = new BundleBaseNameResourceFilter(bundleName);
+      PropertiesFileResource newFileResource = null;
+      for (DirectoryResource directoryResource : resourceFacet.getResourceFolders())
+      {
+         for (Resource<?> resource : directoryResource.listResources(filter))
+         {
+            newFileResource = (PropertiesFileResource) resource;
+            // Using the first resource found
+            break;
+         }
+      }
+      if (newFileResource == null)
+      {
+         newFileResource = resourceFacet.getResourceFolder().getChildOfType(PropertiesFileResource.class,
+                  bundleName);
+         if (!newFileResource.exists())
+         {
+            newFileResource.createNewFile();
+         }
+      }
+      return newFileResource;
+   }   
 }
