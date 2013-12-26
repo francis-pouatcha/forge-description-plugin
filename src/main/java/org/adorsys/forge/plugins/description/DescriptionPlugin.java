@@ -1,11 +1,8 @@
 package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
-import java.util.List;
 import java.io.IOException;
 import java.util.List;
-import java.util.Properties;
-import java.util.Set;
 
 import javax.enterprise.event.Event;
 import javax.inject.Inject;
