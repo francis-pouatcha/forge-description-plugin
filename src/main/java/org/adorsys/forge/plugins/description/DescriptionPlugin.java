@@ -1,7 +1,6 @@
 package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.List;
 
 import javax.enterprise.event.Event;
@@ -13,6 +12,7 @@ import org.jboss.forge.parser.java.Field;
 import org.jboss.forge.parser.java.JavaClass;
 import org.jboss.forge.parser.java.JavaInterface;
 import org.jboss.forge.parser.java.JavaSource;
+import org.jboss.forge.parser.java.JavaType;
 import org.jboss.forge.parser.java.Member;
 import org.jboss.forge.parser.java.Method;
 import org.jboss.forge.project.Project;
@@ -26,7 +26,6 @@ import org.jboss.forge.resources.ResourceFilter;
 import org.jboss.forge.resources.java.JavaFieldResource;
 import org.jboss.forge.resources.java.JavaMethodResource;
 import org.jboss.forge.resources.java.JavaResource;
-import org.jboss.forge.shell.PromptType;
 import org.jboss.forge.shell.Shell;
 import org.jboss.forge.shell.ShellMessages;
 import org.jboss.forge.shell.completer.PropertyCompleter;
@@ -53,6 +52,12 @@ import org.jboss.forge.shell.plugins.SetupCommand;
 @RequiresFacet({ DescriptionFacet.class })
 public class DescriptionPlugin implements Plugin {
 
+
+	private static final String GET_PREFIX = "get";
+	private static final String IS_PREFIX = "is";	
+	public static final String DESCRIPTION_CONSTANT = "description";
+	public static final String DOT_CONSTANT = ".";
+
 	@Inject
 	private Project project;
 
@@ -78,130 +83,134 @@ public class DescriptionPlugin implements Plugin {
 		}
 	}
 
-	@Command(value = "add-description", help = "Adds a description annotation to the current resource (class, interface, field, method")
-	public void addDescription(@Option String description, final PipeOut out){
+	@Command(value = "add-class-description", help = "Adds a description annotation to the current resource class, interface")
+	public void addDescription( 
+			@Option(name = "value") String value, 
+            @Option(name = "locale") String locale,			
+			final PipeOut out){
 		final Resource<?> currentResource = shell.getCurrentResource();
-		if(currentResource instanceof JavaFieldResource){
-			JavaFieldResource jfr =  (JavaFieldResource) currentResource;
-			Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
-			Annotation<? extends JavaSource<?>> annotation = field.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			JavaSource<?> origin = field.getOrigin();
-			//			JavaResource parent = (JavaResource) jfr.getParent();
-			saveAndFire(origin);
-		}else if (currentResource instanceof JavaMethodResource){
-			JavaMethodResource jmr =  (JavaMethodResource) currentResource;
-			Method<? extends JavaSource<?>> method = jmr.getUnderlyingResourceObject();
-			Annotation<? extends JavaSource<?>> annotation = method.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			JavaSource<?> origin = method.getOrigin();
-			//			JavaResource parent = (JavaResource) jmr.getParent();
-			saveAndFire(origin);
-		} else if(currentResource instanceof JavaResource){
+
 			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
 					.inspectResource(currentResource);
 
 			if (javaClassOrInterface.isClass()) {
 				JavaClass clazz = javaClassOrInterface.getJavaClass();
-				if (clazz.hasAnnotation(Description.class)) {
-					throw new IllegalStateException("The element '"
-							+ clazz.getName() + "' is already annotated with @"
-							+ Description.class.getSimpleName());
+				String descriptionKey = getDescriptionKey(clazz);	
+				updateResourceBundleFiles(clazz.getPackage(), locale, descriptionKey, value);
+				
+				Annotation<JavaClass> annotation = null;
+				if (!clazz.hasAnnotation(Description.class)) {
+					annotation = clazz
+							.addAnnotation(Description.class);
+					annotation.setStringValue(descriptionKey);
+					saveAndFire(clazz);
+				} else {
+					annotation = clazz.getAnnotation(Description.class);
+					if(!descriptionKey.equals(annotation.getStringValue())){
+						annotation.setStringValue(descriptionKey);
+						saveAndFire(clazz);
+					}
 				}
-				Annotation<JavaClass> annotation = clazz
-						.addAnnotation(Description.class);
-				annotation.setStringValue(description);
-				saveAndFire(clazz);
-
 			} else if (javaClassOrInterface.isInterface()) {
 				JavaInterface javaInterface = javaClassOrInterface
 						.getJavaInterface();
-				if (javaInterface == null)
-					throw new IllegalStateException(
-							"The current interface has no property accessor named '"
-									+ javaInterface + "'");
-				if (javaInterface.hasAnnotation(Description.class)) {
-					throw new IllegalStateException("The element '"
-							+ javaInterface.getName()
-							+ "' is already annotated with @"
-							+ Description.class.getSimpleName());
+				String descriptionKey = getDescriptionKey(javaInterface);	
+				updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, value);
+
+				Annotation<JavaInterface> annotation = null;
+				if (!javaInterface.hasAnnotation(Description.class)) {
+					annotation = javaInterface
+							.addAnnotation(Description.class);
+					annotation.setStringValue(descriptionKey);
+					saveAndFire(javaInterface);
+				} else {
+					annotation = javaInterface.getAnnotation(Description.class);
+					if(!descriptionKey.equals(annotation.getStringValue())){
+						annotation.setStringValue(descriptionKey);
+						saveAndFire(javaInterface);
+					}
 				}
-				Annotation<JavaInterface> annotation = javaInterface
-						.addAnnotation(Description.class);
-				annotation.setStringValue(description);
-				saveAndFire(javaInterface);
 			}
-		}
 	}
 
-
-	@Command(value = "add-field-description", help = "Adds a description annotation to a class field")
-	public void addFieldDescription(
+	@Command(value = "add-field-description", help = "Adds a description annotation to the field of a class")
+	public void setFieldDescription(
 			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
-			@Option String description, final PipeOut out) {
-		final Resource<?> currentResource = shell.getCurrentResource();
-
-		if(currentResource instanceof JavaFieldResource){
-			JavaFieldResource jfr =  (JavaFieldResource) currentResource;
-			Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
-			Annotation<? extends JavaSource<?>> annotation = field.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			JavaResource parent = (JavaResource) jfr.getParent();
-			saveAndFire(parent);
-		}else {
-			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
-					.inspectResource(currentResource);
-
-			if (!javaClassOrInterface.isClass()) {
-				throw new IllegalStateException(
-						"The current resource is not a class.");
-			}
-
-			JavaClass clazz = javaClassOrInterface.getJavaClass();
-			final Field<JavaClass> field = clazz.getField(property);
-			if (field == null)
-				throw new IllegalStateException(
-						"The current class has no property named '" + property
-						+ "'");
-
-			Member<JavaClass, ?> member = field;
-			if (member.hasAnnotation(Description.class)) {
-				throw new IllegalStateException("The element '" + member.getName()
-						+ "' is already annotated with @"
-						+ Description.class.getSimpleName());
-			}
-			Annotation<JavaClass> annotation = member
-					.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			saveAndFire(clazz);
-		}
-	}
-
-
-	@Command(value = "add-accessor-description", help = "Adds a description annotation to a class or interface accessor method")
-	public void addAccessorDescription(
-			@Option(name = "onAccessor", completer = AccessorCompleter.class, required = true) String methodName,
-			@Option String description, final PipeOut out) {
+			@Option(name = "value") String value, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
 		final Resource<?> currentResource = shell.getCurrentResource();
 		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
 				.inspectResource(currentResource);
 
+		if (!javaClassOrInterface.isClass()) {
+			throw new IllegalStateException(
+					"The current resource is not a class.");
+		}
+
+		JavaClass javaClass = javaClassOrInterface.getJavaClass();
+		
+		final Field<JavaClass> field = javaClass.getField(property);
+		if (field == null)
+			throw new IllegalStateException(
+					"The current class has no property named '" + property
+					+ "'");
+
+		String descriptionKey = getDescriptionKey(field);	
+		updateResourceBundleFiles(field.getOrigin().getPackage(), locale, descriptionKey, value);
+		Annotation<JavaClass> annotation = null;
+		if(!field.hasAnnotation(Description.class)){
+			annotation = field.addAnnotation(Description.class);
+			annotation.setStringValue(descriptionKey);
+			saveAndFire(javaClass);
+		} else {
+			annotation = field.getAnnotation(Description.class);
+			if(!descriptionKey.equals(annotation.getStringValue())){
+				annotation.setStringValue(descriptionKey);
+				saveAndFire(javaClass);
+			}
+		}
+	}
+
+	@Command(value = "add-accessor-description", help = "Adds a description annotation to a class or interface accessor method")
+	public void addAccessorDescription(
+			@Option(name = "onAccessor", completer = AccessorCompleter.class, required = true) String methodName,
+			@Option(name = "value") String value, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		final Resource<?> currentResource = shell.getCurrentResource();
+
+		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
+				.inspectResource(currentResource);
+
 		if (javaClassOrInterface.isClass()) {
-			JavaClass clazz = javaClassOrInterface.getJavaClass();
-			final Method<JavaClass> method = clazz.getMethod(methodName);
+			JavaClass javaClass = javaClassOrInterface.getJavaClass();
+			final Method<JavaClass> method = javaClass.getMethod(methodName);
 			if (method == null)
 				throw new IllegalStateException(
 						"The current class has no property accessor named '"
 								+ method + "'");
+			
+			String descriptionKey = getDescriptionKey(method);	
+			updateResourceBundleFiles(javaClass.getPackage(), locale, descriptionKey, value);
+			Annotation<JavaClass> annotation = null;
+			
 			if (method.hasAnnotation(Description.class)) {
 				throw new IllegalStateException("The element '"
 						+ method.getName() + "' is already annotated with @"
 						+ Description.class.getSimpleName());
 			}
-			Annotation<JavaClass> annotation = method
-					.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			saveAndFire(clazz);
+			if(!method.hasAnnotation(Description.class)){
+				annotation = method.addAnnotation(Description.class);
+				annotation.setStringValue(descriptionKey);
+				saveAndFire(javaClass);
+			} else {
+				annotation = method.getAnnotation(Description.class);
+				if(!descriptionKey.equals(annotation.getStringValue())){
+					annotation.setStringValue(descriptionKey);
+					saveAndFire(javaClass);
+				}
+			}
 		} else if (javaClassOrInterface.isInterface()) {
 			JavaInterface javaInterface = javaClassOrInterface
 					.getJavaInterface();
@@ -211,23 +220,27 @@ public class DescriptionPlugin implements Plugin {
 				throw new IllegalStateException(
 						"The current interface has no property accessor named '"
 								+ method + "'");
-			if (method.hasAnnotation(Description.class)) {
-				throw new IllegalStateException("The element '"
-						+ method.getName() + "' is already annotated with @"
-						+ Description.class.getSimpleName());
+
+			String descriptionKey = getDescriptionKey(method);	
+			updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, value);
+			Annotation<JavaInterface> annotation = null;
+			
+			if(!method.hasAnnotation(Description.class)){
+				annotation = method.addAnnotation(Description.class);
+				annotation.setStringValue(descriptionKey);
+				saveAndFire(javaInterface);
+			} else {
+				annotation = method.getAnnotation(Description.class);
+				if(!descriptionKey.equals(annotation.getStringValue())){
+					annotation.setStringValue(descriptionKey);
+					saveAndFire(javaInterface);
+				}
 			}
-			Annotation<JavaInterface> annotation = method
-					.addAnnotation(Description.class);
-			annotation.setStringValue(description);
-			saveAndFire(javaInterface);
 		}
 	}
 
-	private static final String GET_PREFIX = "get";
-	private static final String IS_PREFIX = "is";	
-	public static final String DESCRIPTION_CONSTANT = "description";
-	@Command(value = "add-keyed-description", help = "Add description keys and annotation to class, fields and/or method as specified by hte caller.")
-	public void addKeyedDescription(
+	@Command(value = "generate-description-keys", help = "Add description keys and annotation to class, fields and/or method as specified by hte caller.")
+	public void generateDescriptionKeys(
 			@Option(name = "onAllProperties", flagOnly = true, required=false) boolean onProperties,
 			@Option(name = "onAllAccessors", flagOnly = true, required=false) boolean onAccessors,
 			final PipeOut out){
@@ -242,7 +255,7 @@ public class DescriptionPlugin implements Plugin {
 			String fieldName = field.getName();
 			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(origin.getPackage(), descriptionKey);
+			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null);
 			saveAndFire(origin);
 		
 		}else if (currentResource instanceof JavaMethodResource){
@@ -254,7 +267,7 @@ public class DescriptionPlugin implements Plugin {
 			String fieldName = method.getName();
 			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(origin.getPackage(), descriptionKey);
+			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null);
 			saveAndFire(origin);
 		} else if(currentResource instanceof JavaResource){
 			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
@@ -268,7 +281,7 @@ public class DescriptionPlugin implements Plugin {
 							.addAnnotation(Description.class);
 					String descriptionKey = clazz.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
 					annotation.setStringValue(descriptionKey);
-					updateResourceBundleFiles(clazz.getPackage(), descriptionKey);
+					updateResourceBundleFiles(clazz.getPackage(), null, descriptionKey, null);
 				}
 				if(onAccessors)
 					addDescriptionOnAccessors(clazz);
@@ -285,7 +298,7 @@ public class DescriptionPlugin implements Plugin {
 							.addAnnotation(Description.class);
 					String descriptionKey = javaInterface.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
 					annotation.setStringValue(descriptionKey);
-					updateResourceBundleFiles(javaInterface.getPackage(), descriptionKey);
+					updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null);
 				}
 				if(onAccessors)
 					addDescriptionOnAccessors(javaInterface);
@@ -294,48 +307,49 @@ public class DescriptionPlugin implements Plugin {
 			}
 		}
 	}	
-
-	@Command(value="auto-generate-description",help="add description  in description.propeties file from java class")
-	public void auditFieldCommand(final PipeOut out , @Option(required=false,type=PromptType.JAVA_CLASS) JavaResource targets ) throws IOException
-	{
-		final Resource<?> currentResource = shell.getCurrentResource();
-		if ((targets == null)&& (currentResource instanceof JavaResource)) {
-			targets = (JavaResource) currentResource ;
-		}
-		if (targets==null) {
-			ShellMessages.error(out, "Must specify a java resource on which to operate.");
-			return;
-		}
-		PropertiesFileResource propertiesFileResource = DescriptionPluginUtils.loadDescriptionPropertiesFileResource(project);
-		ResourceDescription resourceDescription = getResourceDescription(targets);
-		propertiesFileResource.putAllProperties(resourceDescription);
-		propertiesFileResource.setContents(propertiesFileResource.getResourceInputStream());
-
-
-	}
-
-	public  ResourceDescription getDescriptionFromField(Field<?> field){
-		ResourceDescription fieldDescription = new ResourceDescription();
-		String descriptionKey = new StringBuilder(field.getOrigin().getCanonicalName()).append("."+field.getName()).append(".description").toString();
-		String description ="";
-		if(field.hasAnnotation(org.adorsys.javaext.description.Description.class)){
-			description = field.getAnnotation(Description.class).getStringValue();
-		}
-		fieldDescription.put(descriptionKey, description);
-		return fieldDescription ;
-	}
-
-	public ResourceDescription getResourceDescription(JavaResource resource){
-		ResourceDescription resourceDescription = new ResourceDescription();
-		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils.inspectResource(resource);
-		resourceDescription.put(javaClassOrInterface.getDescriptionKey(), javaClassOrInterface.getDescription());
-		List<Field<?>> fields = javaClassOrInterface.getField();
-		for (Field<?> field : fields) {
-			resourceDescription.putAll(getDescriptionFromField(field));
-		}
-		return resourceDescription ;
-	}
-
+//
+//	
+//	@Command(value="auto-generate-description",help="add description  in description.propeties file from java class")
+//	public void auditFieldCommand(final PipeOut out , @Option(required=false,type=PromptType.JAVA_CLASS) JavaResource targets ) throws IOException
+//	{
+//		final Resource<?> currentResource = shell.getCurrentResource();
+//		if ((targets == null)&& (currentResource instanceof JavaResource)) {
+//			targets = (JavaResource) currentResource ;
+//		}
+//		if (targets==null) {
+//			ShellMessages.error(out, "Must specify a java resource on which to operate.");
+//			return;
+//		}
+//		PropertiesFileResource propertiesFileResource = DescriptionPluginUtils.loadDescriptionPropertiesFileResource(project);
+//		ResourceDescription resourceDescription = getResourceDescription(targets);
+//		propertiesFileResource.putAllProperties(resourceDescription);
+//		propertiesFileResource.setContents(propertiesFileResource.getResourceInputStream());
+//
+//
+//	}
+//
+//	public  ResourceDescription getDescriptionFromField(Field<?> field){
+//		ResourceDescription fieldDescription = new ResourceDescription();
+//		String descriptionKey = new StringBuilder(field.getOrigin().getCanonicalName()).append("."+field.getName()).append(".description").toString();
+//		String description ="";
+//		if(field.hasAnnotation(org.adorsys.javaext.description.Description.class)){
+//			description = field.getAnnotation(Description.class).getStringValue();
+//		}
+//		fieldDescription.put(descriptionKey, description);
+//		return fieldDescription ;
+//	}
+//
+//	public ResourceDescription getResourceDescription(JavaResource resource){
+//		ResourceDescription resourceDescription = new ResourceDescription();
+//		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils.inspectResource(resource);
+//		resourceDescription.put(javaClassOrInterface.getDescriptionKey(), javaClassOrInterface.getDescription());
+//		List<Field<?>> fields = javaClassOrInterface.getField();
+//		for (Field<?> field : fields) {
+//			resourceDescription.putAll(getDescriptionFromField(field));
+//		}
+//		return resourceDescription ;
+//	}
+//
 	private void addDescriptionOnAccessors(JavaInterface javaInterface) {
 		List<Method<JavaInterface>> methods = javaInterface.getMethods();
 		for (Method<JavaInterface> method : methods) {
@@ -348,7 +362,7 @@ public class DescriptionPlugin implements Plugin {
 				Annotation<JavaInterface> annotation = method.addAnnotation(Description.class);
 				String descriptionKey = javaInterface.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
 				annotation.setStringValue(descriptionKey);
-				updateResourceBundleFiles(javaInterface.getPackage(), descriptionKey);
+				updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null);
 			}
 		}
 	}
@@ -361,7 +375,7 @@ public class DescriptionPlugin implements Plugin {
 			Annotation<JavaClass> annotation = field.addAnnotation(Description.class);
 			String descriptionKey = javaClass.getQualifiedName() + "." + field.getName() + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(javaClass.getPackage(), descriptionKey);
+			updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null);
 		}
 		
 	}
@@ -378,7 +392,7 @@ public class DescriptionPlugin implements Plugin {
 				Annotation<JavaClass> annotation = method.addAnnotation(Description.class);
 				String descriptionKey = javaClass.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
 				annotation.setStringValue(descriptionKey);
-				updateResourceBundleFiles(javaClass.getPackage(), descriptionKey);
+				updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null);
 			}
 		}
 	}
@@ -396,25 +410,13 @@ public class DescriptionPlugin implements Plugin {
 
 	}
 
-	private void saveAndFire(JavaResource resource) {
-		try {
-			saveAndFire(resource.getJavaSource());
-		} catch (FileNotFoundException e) {
-			throw new IllegalStateException(
-					"The current resource '"
-							+ resource.getName() + "' was deleted from the file system.");
-		}
-	}
-	
-	
 	/*
 	 * Will update the resource bundle file. We will us a single file for each package.
 	 */
-	private void updateResourceBundleFiles(String packageName, String key){
-		String bundleName = packageName + ".descriptions.messages.properties";
+	private void updateResourceBundleFiles(String packageName, String locale, String key, String value){
+		String bundleName = packageName + ".descriptions.messages"+ (locale!=null?"_"+locale:"")+".properties";
 		PropertiesFileResource propertiesFileResource = getOrCreate(bundleName);
-		propertiesFileResource.putProperty(key, key);
-		
+		propertiesFileResource.putProperty(key, value);
 	}
 
    private class BundleBaseNameResourceFilter implements ResourceFilter
@@ -464,4 +466,13 @@ public class DescriptionPlugin implements Plugin {
       }
       return newFileResource;
    }   
+   
+   private String getDescriptionKey(Member<?, ?> member){
+	  return member.getOrigin().getQualifiedName() + DOT_CONSTANT + member.getName() + DOT_CONSTANT + DESCRIPTION_CONSTANT;
+   }
+  
+	private String getDescriptionKey(JavaType<?> javaType) {
+		return javaType.getQualifiedName() + DOT_CONSTANT + DESCRIPTION_CONSTANT;
+	}
+   
 }

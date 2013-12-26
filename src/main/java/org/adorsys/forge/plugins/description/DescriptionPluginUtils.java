@@ -2,19 +2,18 @@ package org.adorsys.forge.plugins.description;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
-import org.adorsys.javaext.description.Description;
 import org.jboss.forge.parser.java.Field;
 import org.jboss.forge.parser.java.JavaClass;
 import org.jboss.forge.parser.java.JavaInterface;
 import org.jboss.forge.parser.java.JavaSource;
+import org.jboss.forge.parser.java.Method;
 import org.jboss.forge.project.Project;
 import org.jboss.forge.project.facets.ResourceFacet;
 import org.jboss.forge.resources.PropertiesFileResource;
 import org.jboss.forge.resources.Resource;
+import org.jboss.forge.resources.java.JavaFieldResource;
+import org.jboss.forge.resources.java.JavaMethodResource;
 import org.jboss.forge.resources.java.JavaResource;
 
 public final class DescriptionPluginUtils {
@@ -25,16 +24,24 @@ public final class DescriptionPluginUtils {
 			throw new IllegalArgumentException(
 					"The current resource can not be null");
 		}
-		if (!(resource instanceof JavaResource)) {
-			throw new IllegalArgumentException("The given resource '"
-					+ resource.getName() + "' is not a Java resource");
-		}
-
-		final JavaResource javaResource = (JavaResource) resource;
-
+		
 		JavaSource<?> javaSource;
 		try {
-			javaSource = javaResource.getJavaSource();
+			if(resource instanceof JavaFieldResource){
+				JavaFieldResource jfr =  (JavaFieldResource) resource;
+				Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
+				javaSource = field.getOrigin();
+			} else if (resource instanceof JavaMethodResource){
+				JavaMethodResource jmr = (JavaMethodResource) resource;
+				Method<? extends JavaSource<?>> method = jmr.getUnderlyingResourceObject();
+				javaSource = method.getOrigin();
+			} else if (resource instanceof JavaResource) {
+				final JavaResource javaResource = (JavaResource) resource;
+				javaSource = javaResource.getJavaSource();
+			} else {
+				throw new IllegalArgumentException("The given resource '"
+						+ resource.getName() + "' is not a Java resource");
+			}
 		} catch (FileNotFoundException e) {
 			throw new IllegalArgumentException("The given resource '"
 					+ resource.getName()
