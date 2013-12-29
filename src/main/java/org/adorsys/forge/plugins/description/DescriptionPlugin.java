@@ -56,7 +56,16 @@ public class DescriptionPlugin implements Plugin {
 	private static final String GET_PREFIX = "get";
 	private static final String IS_PREFIX = "is";	
 	public static final String DESCRIPTION_CONSTANT = "description";
+	/*
+	 * Description title will be used in user interfaces as field descriptors, form titles.
+	 */
+	public static final String TITLE_SUFFIX = "title";
+	/*
+	 * Text will be used as help messages, popup illustrations of fields and forms
+	 */
+	public static final String TEXT_SUFFIX = "text";
 	public static final String DOT_CONSTANT = ".";
+	public static final String UNDERSCORE_CONSTANT = "_";
 
 	@Inject
 	private Project project;
@@ -85,7 +94,8 @@ public class DescriptionPlugin implements Plugin {
 
 	@Command(value = "add-class-description", help = "Adds a description annotation to the current resource class, interface")
 	public void addDescription( 
-			@Option(name = "value") String value, 
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
             @Option(name = "locale") String locale,			
 			final PipeOut out){
 		final Resource<?> currentResource = shell.getCurrentResource();
@@ -96,7 +106,7 @@ public class DescriptionPlugin implements Plugin {
 			if (javaClassOrInterface.isClass()) {
 				JavaClass clazz = javaClassOrInterface.getJavaClass();
 				String descriptionKey = getDescriptionKey(clazz);	
-				updateResourceBundleFiles(clazz.getPackage(), locale, descriptionKey, value);
+				updateResourceBundleFiles(clazz.getPackage(), locale, descriptionKey, title, text);
 				
 				Annotation<JavaClass> annotation = null;
 				if (!clazz.hasAnnotation(Description.class)) {
@@ -115,7 +125,7 @@ public class DescriptionPlugin implements Plugin {
 				JavaInterface javaInterface = javaClassOrInterface
 						.getJavaInterface();
 				String descriptionKey = getDescriptionKey(javaInterface);	
-				updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, value);
+				updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, title, text);
 
 				Annotation<JavaInterface> annotation = null;
 				if (!javaInterface.hasAnnotation(Description.class)) {
@@ -136,7 +146,8 @@ public class DescriptionPlugin implements Plugin {
 	@Command(value = "add-field-description", help = "Adds a description annotation to the field of a class")
 	public void setFieldDescription(
 			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
-			@Option(name = "value") String value, 
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
             @Option(name = "locale") String locale,
 			final PipeOut out) {
 		final Resource<?> currentResource = shell.getCurrentResource();
@@ -157,7 +168,7 @@ public class DescriptionPlugin implements Plugin {
 					+ "'");
 
 		String descriptionKey = getDescriptionKey(field);	
-		updateResourceBundleFiles(field.getOrigin().getPackage(), locale, descriptionKey, value);
+		updateResourceBundleFiles(field.getOrigin().getPackage(), locale, descriptionKey, title, text);
 		Annotation<JavaClass> annotation = null;
 		if(!field.hasAnnotation(Description.class)){
 			annotation = field.addAnnotation(Description.class);
@@ -175,7 +186,8 @@ public class DescriptionPlugin implements Plugin {
 	@Command(value = "add-accessor-description", help = "Adds a description annotation to a class or interface accessor method")
 	public void addAccessorDescription(
 			@Option(name = "onAccessor", completer = AccessorCompleter.class, required = true) String methodName,
-			@Option(name = "value") String value, 
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
             @Option(name = "locale") String locale,
 			final PipeOut out) {
 		final Resource<?> currentResource = shell.getCurrentResource();
@@ -192,7 +204,7 @@ public class DescriptionPlugin implements Plugin {
 								+ method + "'");
 			
 			String descriptionKey = getDescriptionKey(method);	
-			updateResourceBundleFiles(javaClass.getPackage(), locale, descriptionKey, value);
+			updateResourceBundleFiles(javaClass.getPackage(), locale, descriptionKey, title, text);
 			Annotation<JavaClass> annotation = null;
 			
 			if (method.hasAnnotation(Description.class)) {
@@ -222,7 +234,7 @@ public class DescriptionPlugin implements Plugin {
 								+ method + "'");
 
 			String descriptionKey = getDescriptionKey(method);	
-			updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, value);
+			updateResourceBundleFiles(javaInterface.getPackage(), locale, descriptionKey, title, text);
 			Annotation<JavaInterface> annotation = null;
 			
 			if(!method.hasAnnotation(Description.class)){
@@ -255,7 +267,7 @@ public class DescriptionPlugin implements Plugin {
 			String fieldName = field.getName();
 			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null);
+			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null, null);
 			saveAndFire(origin);
 		
 		}else if (currentResource instanceof JavaMethodResource){
@@ -267,7 +279,7 @@ public class DescriptionPlugin implements Plugin {
 			String fieldName = method.getName();
 			String descriptionKey = klassQualifiedName + "." + fieldName + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null);
+			updateResourceBundleFiles(origin.getPackage(), null, descriptionKey, null, null);
 			saveAndFire(origin);
 		} else if(currentResource instanceof JavaResource){
 			JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
@@ -281,7 +293,7 @@ public class DescriptionPlugin implements Plugin {
 							.addAnnotation(Description.class);
 					String descriptionKey = clazz.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
 					annotation.setStringValue(descriptionKey);
-					updateResourceBundleFiles(clazz.getPackage(), null, descriptionKey, null);
+					updateResourceBundleFiles(clazz.getPackage(), null, descriptionKey, null, null);
 				}
 				if(onAccessors)
 					addDescriptionOnAccessors(clazz);
@@ -298,7 +310,7 @@ public class DescriptionPlugin implements Plugin {
 							.addAnnotation(Description.class);
 					String descriptionKey = javaInterface.getQualifiedName() + "."+DESCRIPTION_CONSTANT;
 					annotation.setStringValue(descriptionKey);
-					updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null);
+					updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null, null);
 				}
 				if(onAccessors)
 					addDescriptionOnAccessors(javaInterface);
@@ -362,7 +374,7 @@ public class DescriptionPlugin implements Plugin {
 				Annotation<JavaInterface> annotation = method.addAnnotation(Description.class);
 				String descriptionKey = javaInterface.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
 				annotation.setStringValue(descriptionKey);
-				updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null);
+				updateResourceBundleFiles(javaInterface.getPackage(), null, descriptionKey, null, null);
 			}
 		}
 	}
@@ -375,7 +387,7 @@ public class DescriptionPlugin implements Plugin {
 			Annotation<JavaClass> annotation = field.addAnnotation(Description.class);
 			String descriptionKey = javaClass.getQualifiedName() + "." + field.getName() + "." + DESCRIPTION_CONSTANT;
 			annotation.setStringValue(descriptionKey);
-			updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null);
+			updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null, null);
 		}
 		
 	}
@@ -392,7 +404,7 @@ public class DescriptionPlugin implements Plugin {
 				Annotation<JavaClass> annotation = method.addAnnotation(Description.class);
 				String descriptionKey = javaClass.getQualifiedName() + "." + methodName + "." + DESCRIPTION_CONSTANT;
 				annotation.setStringValue(descriptionKey);
-				updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null);
+				updateResourceBundleFiles(javaClass.getPackage(), null, descriptionKey, null, null);
 			}
 		}
 	}
@@ -413,10 +425,14 @@ public class DescriptionPlugin implements Plugin {
 	/*
 	 * Will update the resource bundle file. We will us a single file for each package.
 	 */
-	private void updateResourceBundleFiles(String packageName, String locale, String key, String value){
+	private void updateResourceBundleFiles(String packageName, String locale, String key, String title, String text){
 		String bundleName = packageName + ".descriptions.messages"+ (locale!=null?"_"+locale:"")+".properties";
 		PropertiesFileResource propertiesFileResource = getOrCreate(bundleName);
-		propertiesFileResource.putProperty(key, value);
+		String keyFormated = key.replace(DOT_CONSTANT, UNDERSCORE_CONSTANT);
+		String titleKey = keyFormated + UNDERSCORE_CONSTANT + TITLE_SUFFIX;
+		String textKey = keyFormated + UNDERSCORE_CONSTANT + TEXT_SUFFIX;
+		propertiesFileResource.putProperty(titleKey, title);
+		propertiesFileResource.putProperty(textKey, text);
 	}
 
    private class BundleBaseNameResourceFilter implements ResourceFilter
