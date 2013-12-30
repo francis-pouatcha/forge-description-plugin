@@ -39,7 +39,7 @@ public class DescriptionFacetImpl extends BaseFacet implements DescriptionFacet 
 					getInstaller().installManaged(project, JAVAEE6);
 				}
 				getInstaller()
-						.install(project, requirement, ScopeType.PROVIDED);
+						.install(project, requirement, ScopeType.COMPILE);
 			}
 		}
 		return true;
