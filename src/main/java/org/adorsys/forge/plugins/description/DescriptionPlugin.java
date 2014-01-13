@@ -410,11 +410,11 @@ public class DescriptionPlugin implements Plugin {
    }   
    
    private String getDescriptionKey(Member<?, ?> member){
-	  return member.getOrigin().getName() + DOT_CONSTANT + member.getName() + DOT_CONSTANT + DESCRIPTION_CONSTANT;
+	  return member.getOrigin().getName() + UNDERSCORE_CONSTANT + member.getName() + UNDERSCORE_CONSTANT + DESCRIPTION_CONSTANT;
    }
   
 	private String getDescriptionKey(JavaType<?> javaType) {
-		return javaType.getName() + DOT_CONSTANT + DESCRIPTION_CONSTANT;
+		return javaType.getName() + UNDERSCORE_CONSTANT + DESCRIPTION_CONSTANT;
 	}
    
 }
