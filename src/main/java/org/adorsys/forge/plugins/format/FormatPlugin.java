@@ -73,7 +73,7 @@ public class FormatPlugin implements Plugin {
 	@Command(value = "add-number-type", help = "Adds a number type to the format.")
 	public void setFieldDescription(
 			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
-			@Option(name = "type", completer=EnumCompleter.class, required = true) NumberType numberType,
+			@Option(name = "type", completer=NumberTypeCompleter.class, required = true) NumberType numberType,
 			final PipeOut out) {
 		final Resource<?> currentResource = shell.getCurrentResource();
 			
