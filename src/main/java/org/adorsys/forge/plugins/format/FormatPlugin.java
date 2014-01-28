@@ -92,7 +92,7 @@ public class FormatPlugin implements Plugin {
 			throw new IllegalStateException(
 					"The current class has no property named '" + property
 					+ "'");
-		if(field.getType().equals(BigDecimal.class.getName())){
+		if(!field.getQualifiedType().equals(BigDecimal.class.getName())){
 			throw new IllegalStateException(
 					"The property '" + property
 					+ "' is not a BigDecimal" );
