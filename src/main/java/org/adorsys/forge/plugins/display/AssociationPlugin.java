@@ -131,9 +131,6 @@ public class AssociationPlugin implements Plugin {
 				+ ".class");
 		if(field.hasAnnotation(OneToMany.class)){
 			Annotation<JavaClass> oneToManyAnnotation = field.getAnnotation(OneToMany.class);
-			if (!field.hasAnnotation("org.codehaus.jackson.annotate.JsonIgnore")) {
-				field.addAnnotation("org.codehaus.jackson.annotate.JsonIgnore");
-			}
 			if (AssociationType.AGGREGATION.equals(associationType)) {
 				/*
 				 * OneToMany aggregated are generally unidirectional. No mapped by field.
@@ -163,9 +160,8 @@ public class AssociationPlugin implements Plugin {
 				}
 				String orphanRemovalAnnotationValue = oneToManyAnnotation
 						.getStringValue("orphanRemoval");
-				if (StringUtils.isBlank(orphanRemovalAnnotationValue)) {
-					oneToManyAnnotation.setLiteralValue("orphanRemoval",
-							"true");
+				if (StringUtils.isNotBlank(orphanRemovalAnnotationValue)) {
+					oneToManyAnnotation.removeValue("orphanRemoval");// no orphan removal.
 				}
 			}
 		}
@@ -254,9 +250,6 @@ public class AssociationPlugin implements Plugin {
 		
 		if(field.hasAnnotation(ManyToMany.class)){
 			Annotation<JavaClass> manyToManyAnnotation = field.getAnnotation(ManyToMany.class);
-			if (!field.hasAnnotation("org.codehaus.jackson.annotate.JsonIgnore")) {
-				field.addAnnotation("org.codehaus.jackson.annotate.JsonIgnore");
-			}
 			if (AssociationType.AGGREGATION.equals(associationType)) {
 				/*
 				 * OneToMany aggregated are generally unidirectional. No mapped by field.
@@ -285,9 +278,8 @@ public class AssociationPlugin implements Plugin {
 					}
 					String orphanRemovalAnnotationValue = manyToManyAnnotation
 							.getStringValue("orphanRemoval");
-					if (StringUtils.isBlank(orphanRemovalAnnotationValue)) {
-						manyToManyAnnotation.setLiteralValue("orphanRemoval",
-								"true");
+					if (StringUtils.isNotBlank(orphanRemovalAnnotationValue)) {
+						manyToManyAnnotation.removeValue("orphanRemoval");// no orphan removal.
 					}
 				} else {
 					CascadeType[] cascadeAnnotationValue = manyToManyAnnotation
