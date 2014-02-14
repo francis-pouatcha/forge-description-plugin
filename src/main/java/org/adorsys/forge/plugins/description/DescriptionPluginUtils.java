@@ -59,6 +59,36 @@ public final class DescriptionPluginUtils {
 		}
 	}
 
+	public static final JavaSource<?> readCurrentResource(Resource<?> resource) {
+		if (resource == null) {
+			throw new IllegalArgumentException("The current resource can not be null");
+		}
+		
+		JavaSource<?> javaSource;
+		try {
+			if(resource instanceof JavaFieldResource){
+				JavaFieldResource jfr =  (JavaFieldResource) resource;
+				Field<? extends JavaSource<?>> field = jfr.getUnderlyingResourceObject();
+				javaSource = field.getOrigin();
+			} else if (resource instanceof JavaMethodResource){
+				JavaMethodResource jmr = (JavaMethodResource) resource;
+				Method<? extends JavaSource<?>> method = jmr.getUnderlyingResourceObject();
+				javaSource = method.getOrigin();
+			} else if (resource instanceof JavaResource) {
+				final JavaResource javaResource = (JavaResource) resource;
+				javaSource = javaResource.getJavaSource();
+			} else {
+				throw new IllegalArgumentException("The given resource '"
+						+ resource.getName() + "' is not a Java resource");
+			}
+			return javaSource;
+		} catch (FileNotFoundException e) {
+			throw new IllegalArgumentException("The given resource '"
+					+ resource.getName()
+					+ "' has be deleted from the file system.");
+		}
+	}
+
 	public static PropertiesFileResource loadDescriptionPropertiesFileResource(Project project) throws IOException{
 		ResourceFacet resourceFacet = project.getFacet(ResourceFacet.class);
 		PropertiesFileResource descriptionProperties = (PropertiesFileResource) resourceFacet.getResource("description.properties");
