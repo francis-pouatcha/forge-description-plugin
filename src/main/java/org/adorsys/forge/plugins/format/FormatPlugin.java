@@ -9,8 +9,10 @@ import javax.inject.Inject;
 import org.adorsys.forge.plugins.description.DescriptionFacet;
 import org.adorsys.forge.plugins.description.DescriptionPluginUtils;
 import org.adorsys.forge.plugins.description.JavaClassOrInterface;
+import org.adorsys.javaext.format.DateFormatPattern;
 import org.adorsys.javaext.format.NumberFormatType;
 import org.adorsys.javaext.format.NumberType;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.forge.parser.java.Annotation;
 import org.jboss.forge.parser.java.Field;
 import org.jboss.forge.parser.java.JavaClass;
@@ -71,7 +73,7 @@ public class FormatPlugin implements Plugin {
 	}
 
 	@Command(value = "add-number-type", help = "Adds a number type to the format.")
-	public void setFieldDescription(
+	public void addNumberType(
 			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
 			@Option(name = "type", completer=NumberTypeCompleter.class, required = true) NumberType numberType,
 			final PipeOut out) {
@@ -102,6 +104,43 @@ public class FormatPlugin implements Plugin {
 			numberFormatTypeAnnotation = field.addAnnotation(NumberFormatType.class);
 		}
 		numberFormatTypeAnnotation.setEnumArrayValue(numberType);
+		saveAndFire(javaClass);
+	}
+	
+	@Command(value = "add-date-pattern", help = "Adds a number format pattern to the format.")
+	public void addDatePattern(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) final String property,
+			@Option(name = "pattern", required = true) final String pattern,
+			@Option(name = "prefix") final String prefix,
+			@Option(name = "suffix") final String suffix,
+			final PipeOut out) {
+		final Resource<?> currentResource = shell.getCurrentResource();
+			
+		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils
+				.inspectResource(currentResource);
+
+		if (!javaClassOrInterface.isClass()) {
+			throw new IllegalStateException(
+					"The current resource is not a class.");
+		}
+
+		JavaClass javaClass = javaClassOrInterface.getJavaClass();
+		
+		final Field<JavaClass> field = javaClass.getField(property);
+		if (field == null)
+			throw new IllegalStateException(
+					"The current class has no property named '" + property
+					+ "'");
+
+		Annotation<JavaClass> dateFormatPatternAnnotation = field.getAnnotation(DateFormatPattern.class);
+		if(dateFormatPatternAnnotation==null){
+			dateFormatPatternAnnotation = field.addAnnotation(DateFormatPattern.class);
+		}
+		dateFormatPatternAnnotation.setStringValue("pattern", pattern);
+		if(StringUtils.isNotBlank(prefix))
+			dateFormatPatternAnnotation.setStringValue("prefix", prefix);
+		if(StringUtils.isNotBlank(suffix))
+			dateFormatPatternAnnotation.setStringValue("suffix", suffix);
 		saveAndFire(javaClass);
 	}
 

@@ -6,6 +6,19 @@ import java.util.List;
 
 import javax.enterprise.event.Event;
 import javax.inject.Inject;
+import javax.validation.constraints.AssertFalse;
+import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Digits;
+import javax.validation.constraints.Future;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
+import javax.validation.constraints.Past;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
 
 import org.adorsys.javaext.description.Description;
 import org.jboss.forge.parser.java.Annotation;
@@ -55,6 +68,7 @@ public class DescriptionPlugin implements Plugin {
 	private static final String GET_PREFIX = "get";
 	private static final String IS_PREFIX = "is";	
 	public static final String DESCRIPTION_CONSTANT = "description";
+	public static final String VALIDATION_CONSTANT = "validation";
 	/*
 	 * Description title will be used in user interfaces as field descriptors, form titles.
 	 */
@@ -177,6 +191,172 @@ public class DescriptionPlugin implements Plugin {
 			annotation = field.getAnnotation(Description.class);
 			if(!descriptionKey.equals(annotation.getStringValue())){
 				annotation.setStringValue(descriptionKey);
+				saveAndFire(javaClass);
+			}
+		}
+	}
+	
+	@Command(value = "add-size-message", help = "Adds a message key to the @Size constraint and corresponding message in the properties files.")
+	public void addSizeMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Size.class);
+	}
+
+	@Command(value = "add-notNull-message", help = "Adds a message key to the @NotNull constraint and corresponding message in the properties files.")
+	public void addNotNullMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, NotNull.class);
+	}
+
+	@Command(value = "add-null-message", help = "Adds a message key to the @Null constraint and corresponding message in the properties files.")
+	public void addNullMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Null.class);
+	}
+
+	@Command(value = "add-pattern-message", help = "Adds a message key to the @Pattern constraint and corresponding message in the properties files.")
+	public void addPatternMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Pattern.class);
+	}
+	
+	@Command(value = "add-past-message", help = "Adds a message key to the @Past constraint and corresponding message in the properties files.")
+	public void addPastMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Past.class);
+	}
+
+	@Command(value = "add-future-message", help = "Adds a message key to the @Future constraint and corresponding message in the properties files.")
+	public void addFutureMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Future.class);
+	}
+
+	@Command(value = "add-min-message", help = "Adds a message key to the @Min constraint and corresponding message in the properties files.")
+	public void addMinMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Min.class);
+	}
+
+	@Command(value = "add-max-message", help = "Adds a message key to the @Max constraint and corresponding message in the properties files.")
+	public void addMaxMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Max.class);
+	}
+
+	@Command(value = "add-digits-message", help = "Adds a message key to the @Digits constraint and corresponding message in the properties files.")
+	public void addDigitsMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, Digits.class);
+	}
+
+	@Command(value = "add-decimalMin-message", help = "Adds a message key to the @DecimalMin constraint and corresponding message in the properties files.")
+	public void addDecimalMinMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, DecimalMin.class);
+	}
+
+	@Command(value = "add-decimalMax-message", help = "Adds a message key to the @DecimalMax constraint and corresponding message in the properties files.")
+	public void addDecimalMaxMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, DecimalMax.class);
+	}
+
+	@Command(value = "add-assertTrue-message", help = "Adds a message key to the @AssertTrue constraint and corresponding message in the properties files.")
+	public void addAssertTrueMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, AssertTrue.class);
+	}
+
+	@Command(value = "add-assertFalse-message", help = "Adds a message key to the @AssertFalse constraint and corresponding message in the properties files.")
+	public void addAssertFalseMessage(
+			@Option(name = "onProperty", completer = PropertyCompleter.class, required = true) String property,
+			@Option(name = "title") String title, 
+			@Option(name = "text") String text, 
+            @Option(name = "locale") String locale,
+			final PipeOut out) {
+		handleValidationCommand(property, title, text, locale, AssertFalse.class);
+	}
+	
+	private void handleValidationCommand(String property, String title, String text, String locale, Class<? extends java.lang.annotation.Annotation> annotationKlass){
+		final Resource<?> currentResource = shell.getCurrentResource();
+		JavaClassOrInterface javaClassOrInterface = DescriptionPluginUtils.inspectResource(currentResource);
+
+		if (!javaClassOrInterface.isClass()) {
+			throw new IllegalStateException("The current resource is not a class.");
+		}
+
+		JavaClass javaClass = javaClassOrInterface.getJavaClass();
+		
+		final Field<JavaClass> field = javaClass.getField(property);
+		if (field == null)
+			throw new IllegalStateException("The current class has no property named '" + property + "'");
+		
+		handleValidationMessage(javaClass, field, annotationKlass, locale, title, text);
+	}
+	
+	private void handleValidationMessage(JavaClass javaClass, Field<JavaClass> field, 
+			Class<? extends java.lang.annotation.Annotation> annotationKlass, 
+			String locale, String title, String text){
+		String validationKey = getValidationKey(field, annotationKlass.getSimpleName());
+		updateResourceBundleFiles(field.getOrigin().getPackage(), field.getOrigin().getName(), locale, validationKey, title, text);
+		Annotation<JavaClass> annotation = null;
+		if(!field.hasAnnotation(annotationKlass)){
+			annotation = field.addAnnotation(annotationKlass);
+			annotation.setStringValue("message", validationKey);
+			saveAndFire(javaClass);
+		} else {
+			annotation = field.getAnnotation(annotationKlass);
+			if(!validationKey.equals(annotation.getStringValue("message"))){
+				annotation.setStringValue("message", validationKey);
 				saveAndFire(javaClass);
 			}
 		}
@@ -412,7 +592,11 @@ public class DescriptionPlugin implements Plugin {
    private String getDescriptionKey(Member<?, ?> member){
 	  return member.getOrigin().getName() + UNDERSCORE_CONSTANT + member.getName() + UNDERSCORE_CONSTANT + DESCRIPTION_CONSTANT;
    }
-  
+
+   private String getValidationKey(Member<?, ?> member, String constraintClass){
+	  return member.getOrigin().getName() + UNDERSCORE_CONSTANT + member.getName() + UNDERSCORE_CONSTANT + constraintClass + UNDERSCORE_CONSTANT + VALIDATION_CONSTANT;
+   }
+   
 	private String getDescriptionKey(JavaType<?> javaType) {
 		return javaType.getName() + UNDERSCORE_CONSTANT + DESCRIPTION_CONSTANT;
 	}
