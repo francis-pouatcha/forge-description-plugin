@@ -8,10 +8,8 @@ import javax.inject.Inject;
 import org.adorsys.forge.plugins.description.DescriptionFacet;
 import org.adorsys.forge.plugins.description.DescriptionPluginUtils;
 import org.adorsys.forge.plugins.description.JavaClassOrInterface;
-import org.adorsys.javaext.compgroup.Group;
+import org.adorsys.forge.plugins.utils.Utils;
 import org.adorsys.javaext.compgroup.Grouper;
-import org.apache.commons.lang3.StringUtils;
-import org.jboss.forge.parser.java.Annotation;
 import org.jboss.forge.parser.java.EnumConstant;
 import org.jboss.forge.parser.java.JavaClass;
 import org.jboss.forge.parser.java.JavaEnum;
@@ -114,23 +112,26 @@ public class GroupPlugin implements Plugin {
 			throw new IllegalStateException(groupName + " is not an enum constant fo the enum type " + grouper);
 
 		JavaClass javaClass = javaClassOrInterface.getJavaClass();
-		Annotation<JavaClass> groupAnnotation = javaClass.getAnnotation(Group.class);
-		if(groupAnnotation==null)groupAnnotation=javaClass.addAnnotation(Group.class);
-		
-		String nameList= groupAnnotation.getLiteralValue();
-		String literalFieldName = "\""+groupName+"\"";
-		if(StringUtils.isBlank(nameList)){
-			groupAnnotation.setLiteralValue(literalFieldName);
-		} else if(!nameList.startsWith("{")){
-			nameList = "{"+nameList+","+literalFieldName+"}";
-			groupAnnotation.setLiteralValue(nameList);
-		} else {
-			nameList=StringUtils.substringBeforeLast(nameList, "}");
-			nameList = nameList+","+literalFieldName+"}";
-			groupAnnotation.setLiteralValue(nameList);
-		}
-
-		saveAndFire(javaClass);
+		String bundleName = javaEnum.getQualifiedName() + ".properties";
+		Utils.updatePropertiesFile(enumConstant.getName(), javaClass.getQualifiedName(), bundleName, false, project);
+//		
+//		Annotation<JavaClass> groupAnnotation = javaClass.getAnnotation(Group.class);
+//		if(groupAnnotation==null)groupAnnotation=javaClass.addAnnotation(Group.class);
+//		
+//		String nameList= groupAnnotation.getLiteralValue();
+//		String literalFieldName = "\""+groupName+"\"";
+//		if(StringUtils.isBlank(nameList)){
+//			groupAnnotation.setLiteralValue(literalFieldName);
+//		} else if(!nameList.startsWith("{")){
+//			nameList = "{"+nameList+","+literalFieldName+"}";
+//			groupAnnotation.setLiteralValue(nameList);
+//		} else {
+//			nameList=StringUtils.substringBeforeLast(nameList, "}");
+//			nameList = nameList+","+literalFieldName+"}";
+//			groupAnnotation.setLiteralValue(nameList);
+//		}
+//
+//		saveAndFire(javaClass);
 	}
 
 	private void saveAndFire(JavaSource<?> source) {

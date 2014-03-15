@@ -7,6 +7,7 @@ import javax.inject.Inject;
 
 import org.adorsys.forge.plugins.description.DescriptionFacet;
 import org.adorsys.forge.plugins.description.DescriptionPluginUtils;
+import org.adorsys.forge.plugins.utils.Utils;
 import org.adorsys.javaext.admin.LoginRole;
 import org.adorsys.javaext.admin.LoginTable;
 import org.adorsys.javaext.admin.PermissionTable;
@@ -19,9 +20,7 @@ import org.jboss.forge.parser.java.JavaEnum;
 import org.jboss.forge.parser.java.JavaSource;
 import org.jboss.forge.project.Project;
 import org.jboss.forge.project.facets.JavaSourceFacet;
-import org.jboss.forge.project.facets.ResourceFacet;
 import org.jboss.forge.project.facets.events.InstallFacets;
-import org.jboss.forge.resources.PropertiesFileResource;
 import org.jboss.forge.resources.Resource;
 import org.jboss.forge.resources.java.JavaResource;
 import org.jboss.forge.shell.PromptType;
@@ -142,7 +141,7 @@ public class AccessPlugin implements Plugin {
 			final PipeOut out) {
 		addToAnnotation(PermissionTable.class, "permissionNameField", property);
 	}
-	
+
 	public void addToAnnotation(final Class<? extends java.lang.annotation.Annotation> annotationClass,
 			final String propertyName, final String propertyValue) {
 		final Resource<?> currentResource = shell.getCurrentResource();
@@ -246,7 +245,7 @@ public class AccessPlugin implements Plugin {
 		/*
 		 * Override property here set to true
 		 */
-		updatePropertiesFile(userName, password, "logins.properties", true);
+		Utils.updatePropertiesFile(userName, password, "logins.properties", true, project);
 	}
 
 	@Command(value = "role-entry", help = "Prepare data for the creation of a role record")
@@ -256,9 +255,30 @@ public class AccessPlugin implements Plugin {
 		/*
 		 * Override property here set to true
 		 */
-		updatePropertiesFile(userName, role, "roles.properties", false);
+		Utils.updatePropertiesFile(userName, role, "roles.properties", false, project);
 	}
 
+	@Command(value = "add-permission", help = "Adds a permission to a role")
+	public void addPermission(final PipeOut out,
+			@Option(name = "action", required = true) String action,
+			@Option(name = "actionEnum", type = PromptType.JAVA_CLASS, required = true) JavaResource actionEnum,
+			@Option(name = "toRole", required = true) String toRole,
+			@Option(name = "roleEnum", type = PromptType.JAVA_CLASS, required = true) JavaResource roleEnum,
+			@Option(name = "expression") String expression) throws FileNotFoundException {
+
+		final Resource<?> currentResource = shell.getCurrentResource();
+		JavaClass permissionClass = (JavaClass) ((JavaResource) currentResource).getJavaSource();
+		
+		String permissionEntryName = permissionClass.getQualifiedName() + "("+action+")";
+		if(StringUtils.isNotBlank(expression)){
+			permissionEntryName +="("+expression+")";
+		}
+		/*
+		 * Override property here set to true
+		 */
+		Utils.updatePropertiesFile(toRole, permissionEntryName, "permissions.properties", false, project);
+	}
+	
 	private void saveAndFire(JavaSource<?> source) {
 		final JavaSourceFacet javaSourceFacet = project
 				.getFacet(JavaSourceFacet.class);
@@ -309,41 +329,35 @@ public class AccessPlugin implements Plugin {
 	 * Will update the resource bundle file. We will us a single file for each
 	 * package.
 	 */
-	private void updatePropertiesFile(String key, String value,String bundleName, boolean override) {
-		PropertiesFileResource propertiesFileResource = getOrCreate(bundleName);
-		String property = propertiesFileResource.getProperty(key);
-		if(override){
-			property=value;
-		} else {
-			if(StringUtils.isNotBlank(property)){
-				if(StringUtils.equalsIgnoreCase(value, property)) return;// This value is the only one existing for this key.
-				if(StringUtils.endsWithIgnoreCase(property, ","+value)) return;
-				if(StringUtils.startsWithIgnoreCase(property, value+",")) return;
-				if(StringUtils.containsIgnoreCase(property, ","+value+","))return;
-				/*
-				 * Either prefixed or sufixed with a comma
-				 */
-				property+=","+value;
-			} else {
-				property=value;
-			}
-		}
-		propertiesFileResource.putProperty(key, property);
-	}
+//	private void updatePropertiesFile(String key, String value,String bundleName, boolean override) {
+//		PropertiesFileResource propertiesFileResource = Utils.getOrCreate(bundleName, project);
+//		String property = propertiesFileResource.getProperty(key);
+//		if(override){
+//			property=value;
+//		} else {
+//			if(StringUtils.isNotBlank(property)){
+//				if(StringUtils.equalsIgnoreCase(value, property)) return;// This value is the only one existing for this key.
+//				if(StringUtils.endsWithIgnoreCase(property, ","+value)) return;
+//				if(StringUtils.startsWithIgnoreCase(property, value+",")) return;
+//				if(StringUtils.containsIgnoreCase(property, ","+value+","))return;
+//				/*
+//				 * Either prefixed or sufixed with a comma
+//				 */
+//				property+=","+value;
+//			} else {
+//				property=value;
+//			}
+//		}
+//		propertiesFileResource.putProperty(key, property);
+//	}
 
 	/**
 	 * Gets another file resource. Creates a file in case it does not exist
 	 * 
 	 * @param bundleName
 	 * @return
-	 */
 	protected PropertiesFileResource getOrCreate(final String bundleName) {
-		final ResourceFacet resourceFacet = project.getFacet(ResourceFacet.class);
-
-		PropertiesFileResource bundleFile = resourceFacet.getResourceFolder()
-				.getChildOfType(PropertiesFileResource.class,bundleName);
-		if (!bundleFile.exists())
-			bundleFile.createNewFile();
-		return bundleFile;
+		return Utils.getOrCreate(bundleName, project);
 	}
+	 */
 }
